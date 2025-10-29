@@ -1,0 +1,527 @@
+}
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+const starsCanvas = document.getElementById('stars-canvas');
+const starsCtx = starsCanvas.getContext('2d');
+const section = document.querySelector('.products-3d-section');
+
+function resizeCanvas() {
+    starsCanvas.width = section.offsetWidth;
+    starsCanvas.height = section.offsetHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+class Star {
+    constructor() {
+        this.reset();
+        // Her yıldız için farklı yanıp sönme özellikleri
+        this.twinkleSpeed = Math.random() * 0.003 + 0.001; // Daha yavaş ve gerçekçi
+        this.twinkleOffset = Math.random() * Math.PI * 2; // Rastgele başlangıç fazı
+        this.baseOpacity = Math.random() * 0.3 + 0.5; // 0.5-0.8 arası temel parlaklık
+        this.twinkleIntensity = Math.random() * 0.4 + 0.2; // Yanıp sönme şiddeti
+    }
+    reset() {
+        this.x = Math.random() * starsCanvas.width;
+        this.y = Math.random() * starsCanvas.height;
+        this.size = Math.random() * 1.8 + 0.3; // 0.3-2.1 arası boyut
+        this.opacity = Math.random();
+    }
+    update() {
+        // Gerçekçi yanıp sönme - sinüs dalgası ile
+        const twinkle = Math.sin(Date.now() * this.twinkleSpeed + this.twinkleOffset);
+        this.opacity = this.baseOpacity + (twinkle * this.twinkleIntensity);
+        
+        // Bazen daha dramatik yanıp sönme (rastgele)
+        if (Math.random() < 0.001) {
+            this.opacity *= 0.3;
+        }
+    }
+    draw() {
+        starsCtx.save();
+        starsCtx.globalAlpha = this.opacity;
+        
+        // Büyük yıldızlara hafif glow efekti
+        if (this.size > 1.5) {
+            const gradient = starsCtx.createRadialGradient(
+                this.x, this.y, 0,
+                this.x, this.y, this.size * 2
+            );
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.5, 'rgba(200, 220, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(200, 220, 255, 0)');
+            starsCtx.fillStyle = gradient;
+            starsCtx.beginPath();
+            starsCtx.arc(this.x, this.y, this.size * 2, 0, Math.PI * 2);
+            starsCtx.fill();
+        }
+        
+        // Ana yıldız
+        starsCtx.fillStyle = '#ffffff';
+        starsCtx.beginPath();
+        starsCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        starsCtx.fill();
+        starsCtx.restore();
+    }
+}
+
+const stars = [];
+for (let i = 0; i < 400; i++) { // 150'den 400'e çıkarıldı
+    stars.push(new Star());
+}
+
+function animateStars() {
+    starsCtx.fillStyle = '#0a1520';
+    starsCtx.fillRect(0, 0, starsCanvas.width, starsCanvas.height);
+    stars.forEach(star => {
+        star.update();
+        star.draw();
+    });
+    requestAnimationFrame(animateStars);
+}
+animateStars();
+
+// Three.js Scene
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, container.offsetWidth / container.offsetHeight, 0.1, 1000);
+camera.position.set(0, 3, 15); // %100 zoom ile başlat - Kamera target'a yakın
+camera.lookAt(0, 0, 0); // Merkeze bak
+
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+renderer.setSize(container.offsetWidth, container.offsetHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setClearColor(0x000000, 0);
+container.appendChild(renderer.domElement);
+
+const ambientLight = new THREE.AmbientLight(0x6dc5e8, 0.8);
+scene.add(ambientLight);
+
+const pointLight = new THREE.PointLight(0x4fa3d1, 1.8, 60);
+pointLight.position.set(10, 10, 10);
+scene.add(pointLight);
+
+// Ek ışık kaynağı - küreleri daha belirgin yapmak için
+const pointLight2 = new THREE.PointLight(0xffffff, 1.2, 50);
+pointLight2.position.set(-10, 5, -10);
+scene.add(pointLight2);
+
+const products = [
+    {name:'e-Fatura',icon:'📄',color:0x4fa3d1,desc:'Faturalarınızı dijital ortamda düzenleyin.'},
+    {name:'e-Arşiv',icon:'📁',color:0x1e5a7d,desc:'E-arşiv faturalarınızı güvenle saklayın.'},
+    {name:'e-İrsaliye',icon:'📦',color:0x5bb4dd,desc:'İrsaliyelerinizi elektronik ortamda düzenleyin.'},
+    {name:'e-SMM',icon:'📋',color:0x2d7a9e,desc:'Serbest meslek makbuzlarınızı yönetin.'},
+    {name:'e-Müstahsil',icon:'🌾',color:0x6dc5e8,desc:'Müstahsil makbuzlarınızı düzenleyin.'},
+    {name:'Sanal POS',icon:'💳',color:0x154561,desc:'Güvenli ödeme altyapısı.'}
+];
+
+const productMeshes = [];
+const radius = 8; // 12'den 8'e düşürüldü - ürünler daha yakın
+const angleStep = (Math.PI * 2) / products.length;
+
+// Dijital texture oluşturma fonksiyonları - Daha belirgin ve özenli
+function createCircuitTexture(color) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+    
+    // Arka plan - daha koyu ve net gradient
+    const gradient = ctx.createRadialGradient(512, 512, 0, 512, 512, 512);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(0.6, 'rgba(20,20,40,0.95)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0.98)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1024, 1024);
+    
+    // Ana devre çizgileri - daha parlak ve net
+    ctx.strokeStyle = 'rgba(0, 200, 255, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = 'rgba(0, 200, 255, 0.6)';
+    ctx.shadowBlur = 8;
+    
+    // Izgara sistemi
+    for (let i = 0; i < 8; i++) {
+        // Yatay çizgiler
+        ctx.beginPath();
+        ctx.moveTo(0, i * 128 + 64);
+        ctx.lineTo(1024, i * 128 + 64);
+        ctx.stroke();
+        
+        // Dikey çizgiler
+        ctx.beginPath();
+        ctx.moveTo(i * 128 + 64, 0);
+        ctx.lineTo(i * 128 + 64, 1024);
+        ctx.stroke();
+    }
+    
+    // Bağlantı noktaları - daha büyük ve parlak
+    ctx.fillStyle = 'rgba(0, 255, 200, 0.9)';
+    ctx.shadowColor = 'rgba(0, 255, 200, 0.8)';
+    ctx.shadowBlur = 12;
+    for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+            ctx.beginPath();
+            ctx.arc(i * 128 + 64, j * 128 + 64, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // İç nokta
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.beginPath();
+            ctx.arc(i * 128 + 64, j * 128 + 64, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(0, 255, 200, 0.9)';
+        }
+    }
+    
+    // Çapraz bağlantılar
+    ctx.strokeStyle = 'rgba(0, 150, 255, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 5;
+    for (let i = 0; i < 15; i++) {
+        ctx.beginPath();
+        const x1 = Math.random() * 1024;
+        const y1 = Math.random() * 1024;
+        const x2 = x1 + (Math.random() - 0.5) * 200;
+        const y2 = y1 + (Math.random() - 0.5) * 200;
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+    }
+    
+    ctx.shadowBlur = 0;
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+}
+
+function createHexagonTexture(color) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+    
+    // Arka plan
+    const gradient = ctx.createRadialGradient(512, 512, 0, 512, 512, 512);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(0.6, 'rgba(20,20,40,0.95)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0.98)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1024, 1024);
+    
+    // Altıgen ızgara - daha net ve parlak
+    ctx.strokeStyle = 'rgba(0, 200, 255, 0.7)';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = 'rgba(0, 200, 255, 0.5)';
+    ctx.shadowBlur = 6;
+    
+    const hexSize = 50;
+    for (let y = -hexSize; y < 1024 + hexSize; y += hexSize * 1.73) {
+        for (let x = -hexSize; x < 1024 + hexSize; x += hexSize * 3) {
+            const offsetX = (Math.floor(y / (hexSize * 1.73)) % 2 === 0) ? 0 : hexSize * 1.5;
+            drawHexagon(ctx, x + offsetX, y, hexSize);
+            
+            // Merkez noktası
+            ctx.fillStyle = 'rgba(0, 255, 200, 0.6)';
+            ctx.beginPath();
+            ctx.arc(x + offsetX, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    // Rastgele parlak hexagonlar
+    ctx.fillStyle = 'rgba(0, 200, 255, 0.2)';
+    for (let i = 0; i < 10; i++) {
+        const rx = Math.random() * 1024;
+        const ry = Math.random() * 1024;
+        drawHexagonFilled(ctx, rx, ry, hexSize * 0.8);
+    }
+    
+    ctx.shadowBlur = 0;
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+}
+
+function drawHexagon(ctx, x, y, size) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i;
+        const px = x + size * Math.cos(angle);
+        const py = y + size * Math.sin(angle);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.stroke();
+}
+
+function drawHexagonFilled(ctx, x, y, size) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i;
+        const px = x + size * Math.cos(angle);
+        const py = y + size * Math.sin(angle);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+}
+
+function createDataFlowTexture(color) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+    
+    // Arka plan
+    const gradient = ctx.createRadialGradient(512, 512, 0, 512, 512, 512);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(0.6, 'rgba(20,20,40,0.95)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0.98)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1024, 1024);
+    
+    // Merkez parlak nokta
+    const centerGradient = ctx.createRadialGradient(512, 512, 0, 512, 512, 100);
+    centerGradient.addColorStop(0, 'rgba(0, 255, 200, 0.4)');
+    centerGradient.addColorStop(1, 'rgba(0, 255, 200, 0)');
+    ctx.fillStyle = centerGradient;
+    ctx.fillRect(0, 0, 1024, 1024);
+    
+    // Veri akış çizgileri - daha parlak ve net
+    ctx.strokeStyle = 'rgba(0, 200, 255, 0.7)';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = 'rgba(0, 200, 255, 0.6)';
+    ctx.shadowBlur = 8;
+    
+    for (let i = 0; i < 24; i++) {
+        ctx.beginPath();
+        const startX = 512;
+        const startY = 512;
+        const angle = (Math.PI * 2 * i) / 24;
+        const endX = startX + Math.cos(angle) * 450;
+        const endY = startY + Math.sin(angle) * 450;
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+    }
+    
+    // Dairesel ring'ler
+    ctx.strokeStyle = 'rgba(0, 200, 255, 0.4)';
+    ctx.lineWidth = 2;
+    for (let i = 1; i <= 5; i++) {
+        ctx.beginPath();
+        ctx.arc(512, 512, i * 80, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    
+    // Veri noktaları - daha büyük ve parlak
+    ctx.fillStyle = 'rgba(0, 255, 200, 0.9)';
+    ctx.shadowColor = 'rgba(0, 255, 200, 0.8)';
+    ctx.shadowBlur = 12;
+    
+    for (let i = 0; i < 24; i++) {
+        const angle = (Math.PI * 2 * i) / 24;
+        for (let r = 1; r <= 4; r++) {
+            const dist = r * 100;
+            const x = 512 + Math.cos(angle) * dist;
+            const y = 512 + Math.sin(angle) * dist;
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // İç parlak nokta
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(0, 255, 200, 0.9)';
+        }
+    }
+    
+    ctx.shadowBlur = 0;
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+}
+
+products.forEach((product, index) => {
+    // Başlangıç açısı offset'i - her açılışta aynı görünüm için
+    const angleOffset = Math.PI * 0.3; // 54 derece başlangıç offset
+    const angle = angleStep * index + angleOffset;
+    const x = Math.cos(angle) * radius;
+    const z = Math.sin(angle) * radius;
+    
+    // Ana küre - dijital texture ile (yüksek çözünürlük)
+    const geometry = new THREE.SphereGeometry(1.2, 64, 64);
+    
+    // Her küre için farklı dijital texture
+    let digitalTexture;
+    if (index % 3 === 0) {
+        digitalTexture = createCircuitTexture(
+            'rgba(' + ((product.color >> 16) & 255) + ',' + 
+            ((product.color >> 8) & 255) + ',' + 
+            (product.color & 255) + ',0.4)'
+        );
+    } else if (index % 3 === 1) {
+        digitalTexture = createHexagonTexture(
+            'rgba(' + ((product.color >> 16) & 255) + ',' + 
+            ((product.color >> 8) & 255) + ',' + 
+            (product.color & 255) + ',0.4)'
+        );
+    } else {
+        digitalTexture = createDataFlowTexture(
+            'rgba(' + ((product.color >> 16) & 255) + ',' + 
+            ((product.color >> 8) & 255) + ',' + 
+            (product.color & 255) + ',0.4)'
+        );
+    }
+    
+    const material = new THREE.MeshPhongMaterial({
+        color: product.color,
+        emissive: product.color,
+        emissiveIntensity: 0.5,
+        shininess: 120,
+        transparent: true,
+        opacity: 0, // Başlangıçta görünmez - fade-in yapılacak
+        map: digitalTexture,
+        side: THREE.DoubleSide
+    });
+    
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, 0, z);
+    mesh.userData = {product: product, index: index, originalY: 0, targetOpacity: 0.95, currentOpacity: 0};
+    
+    // Özel halka - her ürün için farklı stil
+    let ringGeometry, ringMaterial;
+    
+    if (index % 3 === 0) {
+        // Düz halka
+        ringGeometry = new THREE.TorusGeometry(1.6, 0.05, 8, 50);
+        ringMaterial = new THREE.MeshBasicMaterial({
+            color: product.color,
+            transparent: true,
+            opacity: 0 // Başlangıçta gizli
+        });
+    } else if (index % 3 === 1) {
+        // Çift halka
+        ringGeometry = new THREE.TorusGeometry(1.8, 0.03, 8, 50);
+        ringMaterial = new THREE.MeshBasicMaterial({
+            color: product.color,
+            transparent: true,
+            opacity: 0 // Başlangıçta gizli
+        });
+    } else {
+        // Kalın halka
+        ringGeometry = new THREE.TorusGeometry(1.5, 0.08, 8, 50);
+        ringMaterial = new THREE.MeshBasicMaterial({
+            color: product.color,
+            transparent: true,
+            opacity: 0 // Başlangıçta gizli
+        });
+    }
+    
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    ring.rotation.x = Math.PI / 2;
+    ring.userData = {targetOpacity: index % 3 === 0 ? 0.5 : (index % 3 === 1 ? 0.6 : 0.4)}; // Hedef opacity'yi sakla
+    mesh.add(ring);
+    
+    // İkinci halka (bazı ürünler için)
+    if (index % 2 === 0) {
+        const ring2Geometry = new THREE.TorusGeometry(2.0, 0.02, 6, 40);
+        const ring2Material = new THREE.MeshBasicMaterial({
+            color: product.color,
+            transparent: true,
+            opacity: 0 // Başlangıçta gizli
+        });
+        const ring2 = new THREE.Mesh(ring2Geometry, ring2Material);
+        ring2.rotation.x = Math.PI / 2;
+        ring2.rotation.z = Math.PI / 4;
+        ring2.userData = {targetOpacity: 0.3}; // Hedef opacity'yi sakla
+        mesh.add(ring2);
+    }
+    
+    // Partiküller - az ama görünür
+    const particlesGeometry = new THREE.BufferGeometry();
+    const particlesCount = 20;
+    const positions = new Float32Array(particlesCount * 3);
+    
+    for (let i = 0; i < particlesCount; i++) {
+        const angle = (i / particlesCount) * Math.PI * 2;
+        const orbitRadius = 1.4 + Math.random() * 0.4;
+        const height = (Math.random() - 0.5) * 0.3;
+        
+        positions[i * 3] = Math.cos(angle) * orbitRadius;
+        positions[i * 3 + 1] = height;
+        positions[i * 3 + 2] = Math.sin(angle) * orbitRadius;
+    }
+    
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    
+    const particlesMaterial = new THREE.PointsMaterial({
+        color: product.color,
+        size: 0.12,
+        transparent: true,
+        opacity: 0 // Başlangıçta gizli
+    });
+    particlesMaterial.userData = {targetOpacity: 0.7}; // Hedef opacity'yi sakla
+    
+    const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+    mesh.add(particles);
+    
+    scene.add(mesh);
+    productMeshes.push(mesh);
+    
+    // HTML Label oluştur - Icon + İsim + Marka
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'product-label';
+    labelDiv.innerHTML = `
+        <div style="font-size: 2.5rem; margin-bottom: 5px;">${product.icon}</div>
+        <div class="product-label-name">${product.name}</div>
+        <div class="product-label-brand">QbYTen</div>
+    `;
+    labelDiv.style.display = 'none'; // Başlangıçta gizli
+    document.getElementById('labels-container').appendChild(labelDiv);
+    mesh.userData.labelDiv = labelDiv;
+});
+
+// D1 integration: fetch products; update or rebuild scene
+async function __updateProductsFromD1(){
+  try {
+    const res = await fetch('/api/products');
+    if(!res.ok) return;
+    const data = await res.json();
+    const list = Array.isArray(data.products) ? data.products : [];
+    if(!list.length) return;
+
+    if (list.length !== productMeshes.length) {
+      __rebuildProductsFromD1(list);
+    } else {
+      for (let i = 0; i < list.length; i++) {
+        const mesh = productMeshes[i];
+        const item = list[i];
+        if (!mesh || !item) continue;
+        const colorInt = __toHexInt(item.color);
+        if (colorInt !== null) {
+          mesh.material.color.setHex(colorInt);
+          mesh.material.emissive.setHex(colorInt);
+        }
+        if (mesh.userData && mesh.userData.labelDiv) {
+          mesh.userData.labelDiv.querySelector('.product-label-name').textContent = item.title || mesh.userData.product?.name || '';
+        }
+        if (mesh.userData && mesh.userData.product) {
+          mesh.userData.product.name = item.title || mesh.userData.product.name;
+          mesh.userData.product.desc = item.description || mesh.userData.product.desc;
+        }
+      }
+      __applyProductLayout(list);
+    }
+  } catch(e) { console.warn('D1 products fetch failed', e); }
+}
+__updateProductsFromD1();
+

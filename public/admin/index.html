@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QbYTen Admin</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'; margin: 0; }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 2rem; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; }
+    h1 { margin: 0; font-size: 1.4rem; }
+    main { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; }
+    .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; }
+    .muted { color: #6b7280; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+    input, button { font: inherit; }
+    input { width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: .6rem .75rem; }
+    button { background: #1e5a7d; color: #fff; border: none; border-radius: 8px; padding: .6rem .9rem; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+  </style>
+  <script type="module">
+    const ADMIN_TOKEN = localStorage.getItem('ADMIN_TOKEN') || '';
+    function authHeaders() { return ADMIN_TOKEN ? { 'x-admin-token': ADMIN_TOKEN } : {}; }
+    async function ping() { const el = document.querySelector('#health'); try { const res = await fetch('/api/health'); const data = await res.json(); el.textContent = `ok: ${data.ok}, ts: ${new Date(data.ts).toLocaleString()}`; } catch (e) { el.textContent = 'hata: ' + e; } }
+    async function loadSettings() { const out = document.querySelector('#settings-out'); try { const res = await fetch('/api/settings'); out.textContent = JSON.stringify(await res.json(), null, 2); } catch (e) { out.textContent = 'hata: ' + e; } }
+    async function saveSetting(e) { e.preventDefault(); const key = document.querySelector('#set-key').value.trim(); const value = document.querySelector('#set-value').value; if (!key) return; const btn = document.querySelector('#btn-save'); btn.disabled = true; try { await fetch('/api/settings', { method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() }, body: JSON.stringify({ key, value }) }); await loadSettings(); } finally { btn.disabled = false; } }
+    async function loadList(endpoint, target) { try { const res = await fetch(endpoint); const data = await res.json(); document.querySelector(target).textContent = JSON.stringify(data, null, 2); } catch (e) { document.querySelector(target).textContent = 'hata: ' + e; } }
+    async function addProduct(e) { e.preventDefault(); const form = e.currentTarget; const payload = { slug: form.querySelector('#p-slug').value.trim(), title: form.querySelector('#p-title').value, description: form.querySelector('#p-desc').value, color: form.querySelector('#p-color').value }; await fetch('/api/products', { method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() }, body: JSON.stringify(payload) }); await loadList('/api/products', '#products-out'); form.reset(); }
+    async function addService(e) { e.preventDefault(); const form = e.currentTarget; const payload = { slug: form.querySelector('#s-slug').value.trim(), title: form.querySelector('#s-title').value, description: form.querySelector('#s-desc').value }; await fetch('/api/services', { method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() }, body: JSON.stringify(payload) }); await loadList('/api/services', '#services-out'); form.reset(); }
+    window.addEventListener('DOMContentLoaded', () => { ping(); loadSettings(); document.querySelector('#form').addEventListener('submit', saveSetting); loadList('/api/products', '#products-out'); loadList('/api/services', '#services-out'); document.querySelector('#form-product').addEventListener('submit', addProduct); document.querySelector('#form-service').addEventListener('submit', addService); });
+  </script>
+  <meta name="robots" content="noindex, nofollow" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>QbYTen Yönetim Paneli</h1>
+      <div class="muted">Önizleme / İskelet</div>
+    </header>
+    <main>
+      <div class="card">
+        <strong>Durum</strong>
+        <div id="health" class="muted">yükleniyor…</div>
+      </div>
+      <div class="card">
+        <strong>Ayarlar</strong>
+        <form id="form" class="grid" style="margin-top: .5rem;">
+          <div>
+            <label for="set-key" class="muted">Anahtar</label>
+            <input id="set-key" placeholder="site.title" />
+          </div>
+          <div>
+            <label for="set-value" class="muted">Değer</label>
+            <input id="set-value" placeholder="QbYTen" />
+          </div>
+          <div style="display:flex;align-items:end;">
+            <button id="btn-save" type="submit">Kaydet</button>
+          </div>
+        </form>
+        <pre id="settings-out" style="margin-top:1rem;background:#0a0f1a;color:#cfe9ff;padding:1rem;border-radius:8px;overflow:auto;max-height:300px;"></pre>
+      </div>
+      <div class="card">
+        <strong>Ürünler</strong>
+        <form id="form-product" class="grid" style="margin-top:.5rem;">
+          <div>
+            <label class="muted">Slug</label>
+            <input id="p-slug" placeholder="e-fatura" required />
+          </div>
+          <div>
+            <label class="muted">Başlık</label>
+            <input id="p-title" placeholder="e-Fatura" required />
+          </div>
+          <div>
+            <label class="muted">Açıklama</label>
+            <input id="p-desc" placeholder="Kısa açıklama" />
+          </div>
+          <div>
+            <label class="muted">Renk</label>
+            <input id="p-color" placeholder="#4fa3d1" />
+          </div>
+          <div style="display:flex;align-items:end;"><button type="submit">Ekle</button></div>
+        </form>
+        <pre id="products-out" style="margin-top:1rem;background:#0a0f1a;color:#cfe9ff;padding:1rem;border-radius:8px;overflow:auto;max-height:300px;"></pre>
+      </div>
+      <div class="card">
+        <strong>Servisler</strong>
+        <form id="form-service" class="grid" style="margin-top:.5rem;">
+          <div>
+            <label class="muted">Slug</label>
+            <input id="s-slug" placeholder="efatura-danismanlik" required />
+          </div>
+          <div>
+            <label class="muted">Başlık</label>
+            <input id="s-title" placeholder="Danışmanlık" required />
+          </div>
+          <div>
+            <label class="muted">Açıklama</label>
+            <input id="s-desc" placeholder="Kısa açıklama" />
+          </div>
+          <div style="display:flex;align-items:end;"><button type="submit">Ekle</button></div>
+        </form>
+        <pre id="services-out" style="margin-top:1rem;background:#0a0f1a;color:#cfe9ff;padding:1rem;border-radius:8px;overflow:auto;max-height:300px;"></pre>
+      </div>
+    </main>
+  </div>
+</body>
+<!-- Not: Kimlik doğrulama sonraki iterasyonda geliştirilebilir. -->
+</html>
+
