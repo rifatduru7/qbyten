@@ -602,12 +602,16 @@
 
     if (mobileMenuToggle && mobileSidebarOverlay && sidebar) {
       mobileMenuToggle.addEventListener('click', () => {
-        sidebar.classList.toggle('translate-x-full');
+        // Toggle sidebar: -translate-x-full (hidden) <-> translate-x-0 (visible)
+        sidebar.classList.toggle('-translate-x-full');
+        sidebar.classList.toggle('translate-x-0');
         mobileSidebarOverlay.classList.toggle('hidden');
       });
 
       mobileSidebarOverlay.addEventListener('click', () => {
-        sidebar.classList.add('translate-x-full');
+        // Hide sidebar
+        sidebar.classList.remove('translate-x-0');
+        sidebar.classList.add('-translate-x-full');
         mobileSidebarOverlay.classList.add('hidden');
       });
     }
