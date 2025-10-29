@@ -596,25 +596,48 @@
     }
 
     // Mobile menu toggle
-    const mobileMenuToggle = document.querySelector('#mobile-menu-toggle');
-    const mobileSidebarOverlay = document.querySelector('#mobile-sidebar-overlay');
-    const sidebar = document.querySelector('aside');
+    function initMobileMenu() {
+      const mobileMenuToggle = document.querySelector('#mobile-menu-toggle');
+      const mobileSidebarOverlay = document.querySelector('#mobile-sidebar-overlay');
+      const sidebar = document.querySelector('#sidebar');
 
-    if (mobileMenuToggle && mobileSidebarOverlay && sidebar) {
-      mobileMenuToggle.addEventListener('click', () => {
-        // Toggle sidebar: -translate-x-full (hidden) <-> translate-x-0 (visible)
-        sidebar.classList.toggle('-translate-x-full');
-        sidebar.classList.toggle('translate-x-0');
-        mobileSidebarOverlay.classList.toggle('hidden');
+      if (!mobileMenuToggle || !mobileSidebarOverlay || !sidebar) {
+        return;
+      }
+
+      // Remove existing listeners to avoid duplicates
+      const newToggle = mobileMenuToggle.cloneNode(true);
+      mobileMenuToggle.parentNode.replaceChild(newToggle, mobileMenuToggle);
+      
+      newToggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Simple toggle
+        if (sidebar.classList.contains('-translate-x-full')) {
+          // Show sidebar
+          sidebar.classList.remove('-translate-x-full');
+          sidebar.classList.add('translate-x-0');
+          mobileSidebarOverlay.classList.remove('hidden');
+        } else {
+          // Hide sidebar
+          sidebar.classList.remove('translate-x-0');
+          sidebar.classList.add('-translate-x-full');
+          mobileSidebarOverlay.classList.add('hidden');
+        }
       });
 
-      mobileSidebarOverlay.addEventListener('click', () => {
-        // Hide sidebar
+      mobileSidebarOverlay.addEventListener('click', function() {
+        // Hide sidebar when overlay is clicked
         sidebar.classList.remove('translate-x-0');
         sidebar.classList.add('-translate-x-full');
         mobileSidebarOverlay.classList.add('hidden');
       });
     }
+
+    // Initialize immediately and also on window resize
+    initMobileMenu();
+    window.addEventListener('resize', initMobileMenu);
   }
 
   function fillEditProductForm(product) {
@@ -884,6 +907,12 @@
   function init() {
     console.log('QbYTen Admin Panel initialized');
 
+    // Initialize widget system first
+    if (typeof WidgetSystem !== 'undefined') {
+      WidgetSystem.initialize();
+      initWidgetControls();
+    }
+
     // Initialize all components
     initTokenManagement();
     initEventListeners();
@@ -900,11 +929,367 @@
     setInterval(updateSystemStatus, 30000);
   }
 
+  // ============================================
+  // WIDGET CONTROLS INTEGRATION
+  // ============================================
+  function initWidgetControls() {
+    // Reset layout button
+    const resetLayoutBtn = document.querySelector('#reset-layout-btn');
+    if (resetLayoutBtn) {
+      resetLayoutBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to reset the widget layout to default?')) {
+          localStorage.removeItem('WIDGET_LAYOUT');
+          WidgetSystem.loadLayout();
+          WidgetSystem.renderAll();
+          showToast('Layout reset to default', 'success');
+        }
+      });
+    }
+
+    // Add widget button
+    const addWidgetBtn = document.querySelector('#add-widget-btn');
+    const addWidgetModal = document.querySelector('#add-widget-modal');
+    const closeAddWidgetModal = document.querySelector('#close-add-widget-modal');
+
+    if (addWidgetBtn) {
+      addWidgetBtn.addEventListener('click', () => {
+        if (addWidgetModal) {
+          addWidgetModal.classList.remove('hidden');
+        }
+      });
+    }
+
+    if (closeAddWidgetModal) {
+      closeAddWidgetModal.addEventListener('click', () => {
+        if (addWidgetModal) {
+          addWidgetModal.classList.add('hidden');
+        }
+      });
+    }
+
+    // Widget option buttons
+    const widgetOptions = document.querySelectorAll('.widget-option');
+    widgetOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        const widgetId = option.dataset.widgetId;
+        if (widgetId) {
+          // Find next available position
+          const container = document.querySelector('#widget-container');
+          if (container) {
+            const containerRect = container.getBoundingClientRect();
+            const cellSize = 40; // From widget system
+            const cols = Math.floor(containerRect.width / cellSize);
+            
+            // Find first empty position
+            let placed = false;
+            for (let y = 0; y < 20 && !placed; y++) {
+              for (let x = 0; x < cols && !placed; x++) {
+                if (isPositionAvailable(x, y)) {
+                  WidgetSystem.addWidget(widgetId, x, y);
+                  placed = true;
+                }
+              }
+            }
+            
+            if (placed) {
+              if (addWidgetModal) {
+                addWidgetModal.classList.add('hidden');
+              }
+              showToast('Widget added successfully', 'success');
+            } else {
+              showToast('No available space for widget', 'error');
+            }
+          }
+        }
+      });
+    });
+
+    // Close modal when clicking outside
+    if (addWidgetModal) {
+      addWidgetModal.addEventListener('click', (e) => {
+        if (e.target === addWidgetModal) {
+          addWidgetModal.classList.add('hidden');
+        }
+      });
+    }
+  }
+
+  function isPositionAvailable(x, y) {
+    if (typeof WidgetSystem === 'undefined') return false;
+    
+    const widgets = JSON.parse(localStorage.getItem('WIDGET_LAYOUT') || '[]');
+    return !widgets.some(widget => {
+      const widgetX = widget.x || 0;
+      const widgetY = widget.y || 0;
+      const widgetWidth = widget.width || 4;
+      const widgetHeight = widget.height || 3;
+      
+      return x >= widgetX && x < widgetX + widgetWidth &&
+             y >= widgetY && y < widgetY + widgetHeight;
+    });
+  }
+
+  // ============================================
+  // WIDGET DATA UPDATES
+  // ============================================
+  function updateWidgetSystemStatus() {
+    // Update widget system status indicators
+    const generalEl = document.querySelector('#widget-general-indicator');
+    const generalTextEl = document.querySelector('#widget-general-status');
+    const apiEl = document.querySelector('#widget-api-indicator');
+    const apiTextEl = document.querySelector('#widget-api-status');
+    const dbEl = document.querySelector('#widget-db-indicator');
+    const dbTextEl = document.querySelector('#widget-db-status');
+    const lastCheckEl = document.querySelector('#widget-last-check');
+
+    if (generalEl && generalTextEl) {
+      generalEl.className = 'material-symbols-outlined text-green-500 mb-2';
+      generalEl.textContent = 'check_circle';
+      generalTextEl.textContent = 'All Systems Operational';
+    }
+
+    if (apiEl && apiTextEl) {
+      apiEl.className = 'material-symbols-outlined text-green-500 mb-2';
+      apiEl.textContent = 'check_circle';
+      apiTextEl.textContent = 'API Running';
+    }
+
+    if (dbEl && dbTextEl) {
+      dbEl.className = 'material-symbols-outlined text-green-500 mb-2';
+      dbEl.textContent = 'check_circle';
+      dbTextEl.textContent = 'Database Connected';
+    }
+
+    if (lastCheckEl) {
+      lastCheckEl.textContent = new Date().toLocaleString();
+    }
+  }
+
+  function updateWidgetTokenStatus() {
+    const tokenInput = document.querySelector('#widget-admin-token-input');
+    const saveBtn = document.querySelector('#widget-save-token-btn');
+    const tokenStatus = document.querySelector('#widget-token-status');
+
+    if (tokenInput) {
+      tokenInput.value = state.token;
+    }
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        state.token = tokenInput.value.trim();
+        localStorage.setItem('AUTH_TOKEN', state.token);
+        if (tokenStatus) {
+          tokenStatus.textContent = state.token ? 'Token saved' : 'No token';
+          tokenStatus.className = state.token ? 'text-sm text-green-600 mt-2 text-center' : 'text-sm text-gray-500 dark:text-gray-400 mt-2 text-center';
+        }
+        showToast('Token saved successfully', 'success');
+      });
+    }
+  }
+
+  function updateWidgetSettings() {
+    const container = document.querySelector('#widget-settings-content');
+    if (!container) return;
+
+    if (state.settings.length === 0) {
+      container.innerHTML = '<p class="text-center text-sm text-gray-500 dark:text-gray-400 pt-4">Settings content goes here.</p>';
+      return;
+    }
+
+    container.innerHTML = state.settings.map(setting => `
+      <div class="setting-item p-2 border-b border-gray-100 dark:border-gray-600">
+        <strong class="text-gray-700 dark:text-gray-300">${setting.key}:</strong>
+        <span class="text-gray-600 dark:text-gray-400">${setting.value}</span>
+      </div>
+    `).join('');
+  }
+
+  function updateWidgetProducts() {
+    const container = document.querySelector('#widget-products-list');
+    if (!container) return;
+
+    if (state.products.length === 0) {
+      container.innerHTML = `
+        <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="font-semibold text-gray-800 dark:text-gray-100">PRD-001 <span class="font-normal text-gray-500 dark:text-gray-400">(e-fatura)</span></p>
+              <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Brief description...</p>
+            </div>
+            <div class="flex space-x-2">
+              <button class="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400" data-action="edit-product" data-id="PRD-001"><span class="material-symbols-outlined text-base">edit</span></button>
+              <button class="text-red-500 hover:text-red-700 dark:hover:text-red-400" data-action="delete-product" data-id="PRD-001"><span class="material-symbols-outlined text-base">delete</span></button>
+            </div>
+          </div>
+        </div>
+        <p class="text-center text-sm text-gray-500 dark:text-gray-400 pt-4">No other products found.</p>
+      `;
+      return;
+    }
+
+    container.innerHTML = state.products.map(product => `
+      <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="font-semibold text-gray-800 dark:text-gray-100">${product.slug || product.code || 'PRD-001'} <span class="font-normal text-gray-500 dark:text-gray-400">(${product.category || 'e-fatura'})</span></p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${product.description || 'Brief description...'}</p>
+          </div>
+          <div class="flex space-x-2">
+            <button class="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400" data-action="edit-product" data-id="${product.id}"><span class="material-symbols-outlined text-base">edit</span></button>
+            <button class="text-red-500 hover:text-red-700 dark:hover:text-red-400" data-action="delete-product" data-id="${product.id}"><span class="material-symbols-outlined text-base">delete</span></button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function updateWidgetServices() {
+    const container = document.querySelector('#widget-services-list');
+    if (!container) return;
+
+    if (state.services.length === 0) {
+      container.innerHTML = `
+        <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="font-semibold text-gray-800 dark:text-gray-100">SVC-001 <span class="font-normal text-gray-500 dark:text-gray-400">(e-arsiv)</span></p>
+              <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Brief description...</p>
+            </div>
+            <div class="flex space-x-2">
+              <button class="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400" data-action="edit-service" data-id="SVC-001"><span class="material-symbols-outlined text-base">edit</span></button>
+              <button class="text-red-500 hover:text-red-700 dark:hover:text-red-400" data-action="delete-service" data-id="SVC-001"><span class="material-symbols-outlined text-base">delete</span></button>
+            </div>
+          </div>
+        </div>
+        <p class="text-center text-sm text-gray-500 dark:text-gray-400 pt-4">No other services found.</p>
+      `;
+      return;
+    }
+
+    container.innerHTML = state.services.map(service => `
+      <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="font-semibold text-gray-800 dark:text-gray-100">${service.slug || service.code || 'SVC-001'} <span class="font-normal text-gray-500 dark:text-gray-400">(${service.type || 'e-arsiv'})</span></p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${service.description || 'Brief description...'}</p>
+          </div>
+          <div class="flex space-x-2">
+            <button class="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400" data-action="edit-service" data-id="${service.id}"><span class="material-symbols-outlined text-base">edit</span></button>
+            <button class="text-red-500 hover:text-red-700 dark:hover:text-red-400" data-action="delete-service" data-id="${service.id}"><span class="material-symbols-outlined text-base">delete</span></button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function updateWidgetMenus() {
+    const container = document.querySelector('#widget-menus-list');
+    if (!container) return;
+
+    if (state.menus.length === 0) {
+      container.innerHTML = '<p class="text-center text-sm text-gray-500 dark:text-gray-400 pt-4">No menus found.</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    state.menus.forEach(menu => {
+      renderWidgetMenuItem(menu, container, 0);
+    });
+  }
+
+  function renderWidgetMenuItem(menu, container, level) {
+    const div = document.createElement('div');
+    div.className = 'flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600';
+    div.style.marginLeft = `${level * 20}px`;
+
+    const isActive = menu.is_active === 1;
+    const hasChildren = menu.children && menu.children.length > 0;
+
+    div.innerHTML = `
+      <div class="flex items-center flex-grow">
+        ${menu.icon ? `<span class="material-symbols-outlined text-primary mr-2">${menu.icon}</span>` : ''}
+        <div>
+          <div class="font-semibold text-gray-900 dark:text-white">
+            ${menu.title}
+            ${!isActive ? '<span class="text-xs text-red-500 ml-2">(Hidden)</span>' : ''}
+            ${hasChildren ? `<span class="text-xs text-blue-500 ml-2">(${menu.children.length} submenus)</span>` : ''}
+          </div>
+          <div class="text-xs text-gray-500">
+            ${menu.url || 'No URL'}
+            ${menu.parent_id ? '(Submenu)' : '(Main menu)'}
+            | Order: ${menu.sort_order}
+          </div>
+        </div>
+      </div>
+      <div class="flex space-x-2">
+        <button class="p-2 rounded-full hover:bg-blue-100 dark:hover:bg-gray-700 text-primary transition-colors" data-action="edit-menu" data-id="${menu.id}">
+          <span class="material-symbols-outlined">edit</span>
+        </button>
+        <button class="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 text-red-500 transition-colors" data-action="delete-menu" data-id="${menu.id}">
+          <span class="material-symbols-outlined">delete</span>
+        </button>
+      </div>
+    `;
+
+    container.appendChild(div);
+
+    // Render children recursively
+    if (hasChildren) {
+      menu.children.forEach(child => {
+        renderWidgetMenuItem(child, container, level + 1);
+      });
+    }
+  }
+
+  // Override original functions to also update widgets
+  const originalUpdateSystemStatus = updateSystemStatus;
+  updateSystemStatus = async function() {
+    await originalUpdateSystemStatus();
+    updateWidgetSystemStatus();
+  };
+
+  const originalRenderProducts = renderProducts;
+  renderProducts = function() {
+    originalRenderProducts();
+    updateWidgetProducts();
+  };
+
+  const originalRenderServices = renderServices;
+  renderServices = function() {
+    originalRenderServices();
+    updateWidgetServices();
+  };
+
+  const originalRenderSettings = renderSettings;
+  renderSettings = function() {
+    originalRenderSettings();
+    updateWidgetSettings();
+  };
+
+  const originalRenderMenus = renderMenus;
+  renderMenus = function() {
+    originalRenderMenus();
+    updateWidgetMenus();
+  };
+
+  const originalInitTokenManagement = initTokenManagement;
+  initTokenManagement = function() {
+    originalInitTokenManagement();
+    updateWidgetTokenStatus();
+  };
+
   // Wait for DOM to be ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
+
+  // Also initialize mobile menu immediately as a fallback
+  setTimeout(() => {
+    if (typeof initMobileMenu === 'function') {
+      initMobileMenu();
+    }
+  }, 500);
 
 })();
