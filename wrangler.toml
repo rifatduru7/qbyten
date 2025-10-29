@@ -4,7 +4,7 @@ pages_build_output_dir = "dist"
 
 [vars]
 # Set this in Cloudflare Pages (Project Settings → Environment Variables)
-ADMIN_TOKEN = "admin-token"
+ADMIN_TOKEN = "admin"
 
 [[d1_databases]]
 binding = "DB"
