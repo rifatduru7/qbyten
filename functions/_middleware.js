@@ -33,8 +33,8 @@ export async function onRequest(context) {
     return response;
   }
   
-  // For GET requests to /api/health, /api/products, /api/services, /api/settings - allow without auth
-  const publicPaths = ['/api/health', '/api/products', '/api/services', '/api/settings'];
+  // For GET requests to /api/health, /api/products, /api/services, /api/settings, /api/menus - allow without auth
+  const publicPaths = ['/api/health', '/api/products', '/api/services', '/api/settings', '/api/menus'];
   const isPublicGet = request.method === 'GET' && publicPaths.some(path => url.pathname === path);
   
   // For authentication endpoints (/api/auth/*) - allow without auth

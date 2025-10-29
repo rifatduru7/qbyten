@@ -6,9 +6,31 @@
 <title>QbyTen Admin Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
-<link href="/src/admin/styles.css" rel="stylesheet"/>
-<!-- Tailwind CSS is included via build process -->
-<script>tailwind.config = {darkMode: "class", theme: {extend: {colors: {primary: "#3680f7", "background-light": "#f5f7f8", "background-dark": "#101722"}, fontFamily: {display: "Inter"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}}}};</script>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        primary: "#3680f7",
+        "background-light": "#f5f7f8",
+        "background-dark": "#101722"
+      },
+      fontFamily: {
+        display: ["Inter", "sans-serif"]
+      },
+      borderRadius: {
+        DEFAULT: "0.25rem",
+        lg: "0.5rem",
+        xl: "0.75rem",
+        full: "9999px"
+      }
+    }
+  }
+};
+</script>
 <style>
     .material-symbols-outlined {
       font-variation-settings:
