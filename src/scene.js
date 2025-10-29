@@ -83,14 +83,33 @@ animateStars();
 // Three.js Scene
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, container.offsetWidth / container.offsetHeight, 0.1, 1000);
-camera.position.set(0, 3, 15); // %100 zoom ile başlat - Kamera target'a yakın
+
+// Mobile detection
+const isMobile = window.innerWidth <= 768;
+const isTablet = window.innerWidth > 768 && window.innerWidth <= 1024;
+
+// Responsive camera settings
+const cameraFOV = isMobile ? 85 : 75;
+const cameraPosition = isMobile ? [0, 2, 18] : [0, 3, 15];
+const camera = new THREE.PerspectiveCamera(cameraFOV, container.offsetWidth / container.offsetHeight, 0.1, 1000);
+camera.position.set(...cameraPosition);
 camera.lookAt(0, 0, 0); // Merkeze bak
 
-const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+// Responsive renderer settings
+const pixelRatio = isMobile ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2);
+const antialias = !isMobile; // Disable antialiasing on mobile for performance
+const renderer = new THREE.WebGLRenderer({ antialias, alpha: true });
 renderer.setSize(container.offsetWidth, container.offsetHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setPixelRatio(pixelRatio);
 renderer.setClearColor(0x000000, 0);
+
+// Performance optimizations for mobile
+if (isMobile) {
+    renderer.powerPreference = 'high-performance';
+    // Reduce shadow map quality on mobile
+    renderer.shadowMap.enabled = false;
+}
+
 container.appendChild(renderer.domElement);
 
 const ambientLight = new THREE.AmbientLight(0x6dc5e8, 0.8);
@@ -1039,18 +1058,40 @@ scene.add(galaxyGroup);
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-// OrbitControls - Mouse ile döndürme ve sınırlı zoom
+// OrbitControls - Mouse ve Touch ile döndürme ve sınırlı zoom
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; // Yumuşak hareket
-controls.dampingFactor = 0.08; // Daha yumuşak ve sinematik hareket
+
+// Responsive control settings
+const dampingFactor = isMobile ? 0.12 : 0.08;
+const autoRotateSpeed = isMobile ? 0.2 : 0.3;
+const rotateSpeed = isMobile ? 0.4 : 0.6;
+const zoomSpeed = isMobile ? 0.8 : 0.5;
+const minDistance = isMobile ? 18 : 15;
+const maxDistance = isMobile ? 30 : 27;
+
+controls.dampingFactor = dampingFactor;
 controls.enableZoom = false; // Zoom başlangıçta kapalı - sadece kürelerin üzerinde aktif
-controls.minDistance = 15; // 21-6=15 - 6 birim yakınlaşma
-controls.maxDistance = 27; // 21+6=27 - 6 birim uzaklaşma
+controls.minDistance = minDistance;
+controls.maxDistance = maxDistance;
 controls.enablePan = false; // Pan'i kapat (sadece döndürme ve zoom)
 controls.autoRotate = true; // Hafif otomatik dönüş
-controls.autoRotateSpeed = 0.3; // Çok yavaş, zarif dönüş
-controls.rotateSpeed = 0.6; // Manuel dönüş hızı
-controls.zoomSpeed = 0.5; // Zoom hızı yavaşlatıldı - daha kontrollü
+controls.autoRotateSpeed = autoRotateSpeed;
+controls.rotateSpeed = rotateSpeed;
+controls.zoomSpeed = zoomSpeed;
+
+// Touch-specific settings
+if (isMobile) {
+    // Enable touch gestures
+    controls.touches = {
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+    };
+    
+    // Adjust zoom for touch
+    controls.enableZoom = true;
+    controls.zoomToCursor = false;
+}
 
 // 3D section içinde scroll ile sadece zoom yap, sayfa kaydırmasını engelle (sadece zoom aktifse)
 const products3dSection = document.querySelector('.products-3d-section');
@@ -1124,9 +1165,20 @@ container.addEventListener('mousemove', (event) => {
     }
 });
 
-// Mobil touch desteği
-function handleTouch(event) {
-    if (event.touches.length > 0) {
+// Enhanced mobile touch support with pinch-to-zoom and swipe gestures
+let touchStartDistance = 0;
+let initialZoom = 0;
+let touchStartTime = 0;
+let lastTouchX = 0;
+let lastTouchY = 0;
+
+function handleTouchStart(event) {
+    if (event.touches.length === 1) {
+        // Single touch - record position for swipe detection
+        touchStartTime = Date.now();
+        lastTouchX = event.touches[0].clientX;
+        lastTouchY = event.touches[0].clientY;
+        
         const touch = event.touches[0];
         const rect = container.getBoundingClientRect();
         mouse.x = ((touch.clientX - rect.left) / container.offsetWidth) * 2 - 1;
@@ -1157,14 +1209,98 @@ function handleTouch(event) {
             const panel = document.getElementById('product-info');
             panel.querySelector('h3').textContent = 'Samanyolu Galaksisi';
             panel.querySelector('p').textContent = 'Milyarlarca yıldız ve gezegeni barındıran spiral galaksimiz. QbYTen ile dijital dönüşümünüz de bu kadar büyüleyici olacak.';
-        } else {
-            controls.enableZoom = false;
+        }
+    } else if (event.touches.length === 2) {
+        // Two fingers - pinch to zoom
+        const dx = event.touches[0].clientX - event.touches[1].clientX;
+        const dy = event.touches[0].clientY - event.touches[1].clientY;
+        touchStartDistance = Math.sqrt(dx * dx + dy * dy);
+        initialZoom = camera.position.distanceTo(controls.target);
+    }
+}
+
+function handleTouchMove(event) {
+    if (event.touches.length === 2) {
+        // Pinch to zoom
+        event.preventDefault();
+        const dx = event.touches[0].clientX - event.touches[1].clientX;
+        const dy = event.touches[0].clientY - event.touches[1].clientY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (touchStartDistance > 0) {
+            const scale = distance / touchStartDistance;
+            const newDistance = initialZoom / scale;
+            
+            // Clamp to min/max distance
+            const clampedDistance = Math.max(minDistance, Math.min(maxDistance, newDistance));
+            
+            // Update camera position
+            const direction = new THREE.Vector3();
+            direction.subVectors(camera.position, controls.target).normalize();
+            direction.multiplyScalar(clampedDistance);
+            camera.position.copy(controls.target).add(direction);
         }
     }
 }
 
-container.addEventListener('touchstart', handleTouch, { passive: true });
-container.addEventListener('touchmove', handleTouch, { passive: true });
+function handleTouchEnd(event) {
+    if (event.touches.length === 0) {
+        // Check for swipe gesture
+        const touchEndTime = Date.now();
+        const touchDuration = touchEndTime - touchStartTime;
+        
+        if (touchDuration < 300) {
+            // Quick tap - could be used for selection
+        }
+        
+        touchStartDistance = 0;
+    }
+}
+
+container.addEventListener('touchstart', handleTouchStart, { passive: false });
+container.addEventListener('touchmove', handleTouchMove, { passive: false });
+container.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+// Add touch indicators for mobile
+if (isMobile) {
+    const touchIndicator = document.createElement('div');
+    touchIndicator.id = 'touch-indicator';
+    touchIndicator.innerHTML = `
+        <div class="touch-hint">
+            <div class="touch-icon">👆</div>
+            <div class="touch-text">Swipe to rotate • Pinch to zoom</div>
+        </div>
+    `;
+    touchIndicator.style.cssText = `
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-size: 14px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        text-align: center;
+    `;
+    container.appendChild(touchIndicator);
+    
+    // Show touch hint on first interaction
+    let touchHintShown = false;
+    container.addEventListener('touchstart', () => {
+        if (!touchHintShown) {
+            touchIndicator.style.opacity = '1';
+            setTimeout(() => {
+                touchIndicator.style.opacity = '0';
+            }, 3000);
+            touchHintShown = true;
+        }
+    }, { once: true });
+}
 
 let time = 0;
 function animate() {
@@ -1392,11 +1528,53 @@ function animate() {
 animate();
 
 window.addEventListener('resize', () => {
+    // Update mobile detection on resize
+    const newIsMobile = window.innerWidth <= 768;
+    const newIsTablet = window.innerWidth > 768 && window.innerWidth <= 1024;
+    
+    // Update camera settings if device type changed
+    if (newIsMobile !== isMobile || newIsTablet !== isTablet) {
+        location.reload(); // Simple reload to reinitialize with proper settings
+    }
+    
     camera.aspect = container.offsetWidth / container.offsetHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(container.offsetWidth, container.offsetHeight);
     resizeCanvas();
 });
+
+// Performance monitoring for mobile
+if (isMobile) {
+    let frameCount = 0;
+    let lastTime = performance.now();
+    
+    function checkPerformance() {
+        frameCount++;
+        const currentTime = performance.now();
+        
+        if (currentTime - lastTime >= 1000) {
+            const fps = frameCount;
+            frameCount = 0;
+            lastTime = currentTime;
+            
+            // Reduce quality if performance is poor
+            if (fps < 30) {
+                // Reduce particle count or other performance-intensive features
+                console.log('Performance optimization triggered, FPS:', fps);
+                
+                // Optionally reduce quality dynamically
+                if (galaxy && galaxy.material) {
+                    galaxy.material.opacity = Math.max(0.5, galaxy.material.opacity - 0.1);
+                }
+            }
+        }
+        
+        requestAnimationFrame(checkPerformance);
+    }
+    
+    // Start performance monitoring after a delay
+    setTimeout(checkPerformance, 2000);
+}
 
 
 // D1-driven layout: reposition meshes based on product count

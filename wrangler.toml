@@ -1,12 +1,13 @@
 name = "qbyten-web"
 compatibility_date = "2024-05-01"
+pages_build_output_dir = "dist"
 
 [vars]
 # Set this in Cloudflare Pages (Project Settings → Environment Variables)
-# ADMIN_TOKEN = "your-strong-token"
+ADMIN_TOKEN = "admin-token"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "qbyten"
-database_id = "LOCAL"
+database_id = "954d5daf-36ca-4ca2-88e8-3879d8943b0b"
 
