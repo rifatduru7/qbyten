@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Kayıt - QbYTen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 min-h-screen flex items-center justify-center font-sans">
+    <div class="w-full max-w-md px-6">
+        <!-- Warning Badge -->
+        <div class="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6 text-center">
+            <p class="text-yellow-500 text-sm font-medium">⚠️ Bu sayfa sadece bir kez kullanılmalıdır</p>
+            <p class="text-yellow-400/70 text-xs mt-1">Admin kaydolduktan sonra bu sayfayı silin</p>
+        </div>
+
+        <!-- Registration Card -->
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-700">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-white mb-2">QbYTen</h1>
+                <p class="text-gray-400">Admin Kayıt</p>
+            </div>
+
+            <!-- Registration Form -->
+            <form id="register-form" class="space-y-6">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-300 mb-2">
+                        Kullanıcı Adı
+                    </label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        required
+                        minlength="3"
+                        class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                        placeholder="admin"
+                    >
+                    <p class="text-xs text-gray-500 mt-1">En az 3 karakter olmalı</p>
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-300 mb-2">
+                        Şifre
+                    </label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                        minlength="6"
+                        class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                        placeholder="••••••••"
+                    >
+                    <p class="text-xs text-gray-500 mt-1">En az 6 karakter olmalı</p>
+                </div>
+
+                <div>
+                    <label for="confirm-password" class="block text-sm font-medium text-gray-300 mb-2">
+                        Şifre Tekrar
+                    </label>
+                    <input
+                        type="password"
+                        id="confirm-password"
+                        name="confirm-password"
+                        required
+                        minlength="6"
+                        class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                        placeholder="••••••••"
+                    >
+                </div>
+
+                <!-- Error Message -->
+                <div id="error-message" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-400 text-sm"></div>
+
+                <!-- Success Message -->
+                <div id="success-message" class="hidden bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-green-400 text-sm"></div>
+
+                <button
+                    type="submit"
+                    id="register-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition duration-200 flex items-center justify-center"
+                >
+                    <span>Kayıt Ol</span>
+                </button>
+            </form>
+
+            <!-- Info -->
+            <div class="mt-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                <p class="text-xs text-gray-400 text-center">
+                    <strong class="text-white">Önemli:</strong> Admin kaydolduktan sonra bu sayfayı silin veya erişimi engelleyin.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('register-form');
+        const errorMsg = document.getElementById('error-message');
+        const successMsg = document.getElementById('success-message');
+        const registerBtn = document.getElementById('register-btn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            // Hide messages
+            errorMsg.classList.add('hidden');
+            successMsg.classList.add('hidden');
+
+            // Validation
+            if (password !== confirmPassword) {
+                showError('Şifreler eşleşmiyor!');
+                return;
+            }
+
+            if (password.length < 6) {
+                showError('Şifre en az 6 karakter olmalı!');
+                return;
+            }
+
+            if (username.length < 3) {
+                showError('Kullanıcı adı en az 3 karakter olmalı!');
+                return;
+            }
+
+            // Disable button
+            registerBtn.disabled = true;
+            registerBtn.innerHTML = '<span>Kaydediliyor...</span>';
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess('✅ Kayıt başarılı! 3 saniye içinde giriş sayfasına yönlendiriliyorsunuz...');
+                    form.reset();
+
+                    setTimeout(() => {
+                        window.location.href = '/admin/login.html';
+                    }, 3000);
+                } else {
+                    showError(data.error || 'Kayıt başarısız!');
+                    registerBtn.disabled = false;
+                    registerBtn.innerHTML = '<span>Kayıt Ol</span>';
+                }
+            } catch (error) {
+                showError('Bağlantı hatası: ' + error.message);
+                registerBtn.disabled = false;
+                registerBtn.innerHTML = '<span>Kayıt Ol</span>';
+            }
+        });
+
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.classList.remove('hidden');
+        }
+
+        function showSuccess(message) {
+            successMsg.textContent = message;
+            successMsg.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

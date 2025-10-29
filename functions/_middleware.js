@@ -76,11 +76,45 @@ export async function onRequest(context) {
     });
   }
   
-  // For now, use simple token validation (same as the previous implementation)
-  // In a production environment, you would validate JWT here
-  const expectedToken = env.ADMIN_TOKEN || '';
-  
-  if (token !== expectedToken) {
+  // Validate JWT-like token
+  try {
+    const [payloadB64] = token.split('.');
+
+    if (!payloadB64) {
+      return new Response(JSON.stringify({ error: 'Invalid token format' }), {
+        status: 401,
+        headers: {
+          'content-type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+
+    const payload = JSON.parse(atob(payloadB64));
+
+    // Check if token has expired
+    if (payload.exp && payload.exp < Date.now()) {
+      return new Response(JSON.stringify({ error: 'Token expired' }), {
+        status: 401,
+        headers: {
+          'content-type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+
+    // Check if required fields exist
+    if (!payload.id || !payload.username) {
+      return new Response(JSON.stringify({ error: 'Invalid token payload' }), {
+        status: 401,
+        headers: {
+          'content-type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+
+  } catch (e) {
     return new Response(JSON.stringify({ error: 'Invalid token' }), {
       status: 401,
       headers: {

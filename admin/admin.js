@@ -8,7 +8,7 @@
   // STATE MANAGEMENT
   // ============================================
   const state = {
-    token: localStorage.getItem('ADMIN_TOKEN') || '',
+    token: localStorage.getItem('AUTH_TOKEN') || '',
     products: [],
     services: [],
     settings: [],
@@ -131,7 +131,7 @@
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
         state.token = tokenInput.value.trim();
-        localStorage.setItem('ADMIN_TOKEN', state.token);
+        localStorage.setItem('AUTH_TOKEN', state.token);
         if (tokenStatus) {
           tokenStatus.textContent = state.token ? 'Token saved' : 'No token';
           tokenStatus.className = state.token ? 'text-sm text-green-600 mt-2 text-center' : 'text-sm text-gray-500 dark:text-gray-400 mt-2 text-center';
@@ -861,12 +861,29 @@
   // ============================================
   // INITIALIZATION
   // ============================================
+  // ============================================
+  // LOGOUT FUNCTIONALITY
+  // ============================================
+  function initLogout() {
+    const logoutBtn = document.querySelector('#logout-btn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to logout?')) {
+          localStorage.removeItem('AUTH_TOKEN');
+          localStorage.removeItem('AUTH_USER');
+          window.location.href = '/admin/login.html';
+        }
+      });
+    }
+  }
+
   function init() {
     console.log('QbYTen Admin Panel initialized');
 
     // Initialize all components
     initTokenManagement();
     initEventListeners();
+    initLogout();
 
     // Load initial data
     updateSystemStatus();
