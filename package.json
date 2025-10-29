@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "vite",
     "dev:cf": "wrangler pages dev --port 8788 .",
-    "build": "vite build",
+    "build": "vite build && npm run copy:assets",
+    "build:vite": "vite build",
+    "copy:assets": "node -e \"const fs=require('fs');const path=require('path');function copyDir(s,d){if(!fs.existsSync(d))fs.mkdirSync(d,{recursive:true});fs.readdirSync(s).forEach(f=>{const sp=path.join(s,f),dp=path.join(d,f);fs.statSync(sp).isDirectory()?copyDir(sp,dp):fs.copyFileSync(sp,dp)})};copyDir('admin','dist/admin');copyDir('functions','dist/functions');console.log('✓ Copied admin and functions folders')\"",
     "preview": "vite preview --port 5173",
     "db:local:setup": "wrangler d1 execute qbyten --local --file=schema.sql",
     "db:setup": "wrangler d1 execute qbyten --file=schema.sql"
