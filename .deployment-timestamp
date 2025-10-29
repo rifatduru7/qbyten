@@ -1,0 +1,6 @@
+Last deployment trigger: 2025-10-29 22:15:00 UTC
+All fixes applied:
+- Admin panel Tailwind CSS CDN added
+- API /menus endpoint made public for GET requests
+- CSS loading issues resolved
+- Ready for production deployment
